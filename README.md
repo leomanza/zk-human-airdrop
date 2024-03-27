@@ -1,9 +1,5 @@
 # ZK Human Airdrop
 
-Encode Club ZK Bootcamp 2024 Q1 - Bot Resistant ZK Airdrop
-
-# Merkle Airdrop
-
 This is an implementation of a private Merkle Tree based airdrop built using Mina smart contracts and [snarkyJS](https://www.npmjs.com/package/snarkyjs), intended to have similar functionality to the popular [Mina Merkle Airdrop](https://github.com/aodhgan/mina-merkle-airdrop) with the extension of managing proof of personhood for bot resistant / sybil resistant.
 
 The zk-contract is also a [custom token](https://docs.minaprotocol.com/zkapps/advanced-snarkyjs/custom-tokens) by way of inheritance.
