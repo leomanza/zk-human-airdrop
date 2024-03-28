@@ -34,21 +34,14 @@ export class Account extends CircuitValue {
 }
 
 await isReady;
+const MERKLE_HEIGHT = 8;
+export class MerkleWitnessInstance extends MerkleWitness(MERKLE_HEIGHT) {}
 
-export class MerkleWitnessInstance extends MerkleWitness(8) {}
-
-export class MerkleAirdrop extends SmartContract {
-  // off-chain torage identifier (id)
-  @state(Field) identifier = State<Field>();
-
-  // commitment is the root of the Merkle Tree
-  @state(Field) commitment = State<Field>();
-
-  // nullifiers are used to prevent double spending
-  @state(Field) nullifiers = State<Field>();
-
-  // total supply of tokens
-  @state(UInt64) totalAmountInCirculation = State<UInt64>();
+export class Airdrop extends SmartContract {
+  @state(Field) idsCommitment = State<Field>();
+  @state(Field) claimNullifiers = State<Field>();
+  @state(Field) humansCommitment = State<Field>();
+  @state(UInt64) totalSupply = State<UInt64>();
 
   deploy(args: DeployArgs) {
     super.deploy(args);
@@ -65,7 +58,7 @@ export class MerkleAirdrop extends SmartContract {
     this.balance.addInPlace(UInt64.from(initialBalance));
 
     this.tokenSymbol.set(tokenSymbol);
-    this.totalAmountInCirculation.set(UInt64.zero);
+    this.totalSupply.set(UInt64.zero);
   }
 
   // token method
@@ -74,8 +67,8 @@ export class MerkleAirdrop extends SmartContract {
     amount: UInt64,
     adminSignature: Signature
   ) {
-    let totalAmountInCirculation = this.totalAmountInCirculation.get();
-    this.totalAmountInCirculation.assertEquals(totalAmountInCirculation);
+    let totalAmountInCirculation = this.totalSupply.get();
+    this.totalSupply.assertEquals(totalAmountInCirculation);
     let newTotalAmountInCirculation = totalAmountInCirculation.add(amount);
 
     console.log('verifying signature');
@@ -92,10 +85,9 @@ export class MerkleAirdrop extends SmartContract {
       amount,
     });
     console.log('minted!');
-    this.totalAmountInCirculation.set(newTotalAmountInCirculation);
+    this.totalSupply.set(newTotalAmountInCirculation);
   }
 
-  // token method
   @method sendTokens(
     senderAddress: PublicKey,
     receiverAddress: PublicKey,
@@ -110,14 +102,14 @@ export class MerkleAirdrop extends SmartContract {
 
   @method
   addHumanIdentifier(identifier: Field) {
-    this.identifier.set(identifier);
+    this.humansCommitment.set(identifier);
   }
 
   @method
   checkHumanIdentifierInclusion(account: Account, path: MerkleMapWitness) {
     // we fetch the on-chain identifiers map
-    let identifier = this.identifier.get();
-    this.identifier.assertEquals(identifier);
+    let identifier = this.humansCommitment.get();
+    this.humansCommitment.assertEquals(identifier);
     // we check that the account is within the identifiers Merkle Map
     // eslint-disable-next-line no-unused-vars
     const [rootBefore, key] = path.computeRootAndKey(Field.zero);
@@ -128,7 +120,7 @@ export class MerkleAirdrop extends SmartContract {
   // set initial merkle tree value
   @method
   setCommitment(preImage: Field) {
-    this.commitment.set(preImage);
+    this.idsCommitment.set(preImage);
   }
 
   @method
@@ -136,8 +128,8 @@ export class MerkleAirdrop extends SmartContract {
     // console.log('checkInclusion::checking inclusion for account', account.publicKey.toString());
 
     // we fetch the on-chain commitment
-    let commitment = this.commitment.get();
-    this.commitment.assertEquals(commitment);
+    let commitment = this.idsCommitment.get();
+    this.idsCommitment.assertEquals(commitment);
     // we check that the account is within the committed Merkle Tree
     path.calculateRoot(account.hash()).assertEquals(commitment);
   }
@@ -146,8 +138,8 @@ export class MerkleAirdrop extends SmartContract {
   @method
   checkClaimed(account: Account, mmWitness: MerkleMapWitness): bigint {
     // ensure this account has not been claimed before
-    let nullifiers = this.nullifiers.get();
-    this.nullifiers.assertEquals(nullifiers);
+    let nullifiers = this.claimNullifiers.get();
+    this.claimNullifiers.assertEquals(nullifiers);
 
     // eslint-disable-next-line no-unused-vars
     const [rootBefore, key] = mmWitness.computeRootAndKey(Field.zero);
@@ -163,15 +155,15 @@ export class MerkleAirdrop extends SmartContract {
     mmWitness: MerkleMapWitness
   ) {
     // fetch the on-chain commitment
-    let commitment = this.commitment.get();
-    this.commitment.assertEquals(commitment);
+    let commitment = this.idsCommitment.get();
+    this.idsCommitment.assertEquals(commitment);
 
     // check that the account is within the committed Merkle Tree
     path.calculateRoot(account.hash()).assertEquals(commitment);
 
     // ensure this account has not been claimed before
-    let _nullifiers = this.nullifiers.get();
-    this.nullifiers.assertEquals(_nullifiers);
+    let _nullifiers = this.claimNullifiers.get();
+    this.claimNullifiers.assertEquals(_nullifiers);
 
     // eslint-disable-next-line no-unused-vars
     const [rootBefore, key] = mmWitness.computeRootAndKey(Field.zero);
@@ -186,11 +178,13 @@ export class MerkleAirdrop extends SmartContract {
     console.log('setting nullifier root to', rootAfter.toString());
 
     // set the new root
-    this.nullifiers.set(rootAfter);
+    this.claimNullifiers.set(rootAfter);
 
     console.log({ signature });
 
-    // now send tokens to the account
+    // check account is verified Human
+    // verified humans would receive higher rewards
+    const amount = UInt64.from(1);
     // this.mint(account.publicKey, UInt64.one, signature);
   }
 }

@@ -1,8 +1,4 @@
-import {
-  MerkleAirdrop,
-  Account,
-  MerkleWitnessInstance,
-} from './ZKHumanAirdrop';
+import { Airdrop, Account, MerkleWitnessInstance } from './ZKHumanAirdrop';
 import {
   isReady,
   shutdown,
@@ -30,11 +26,6 @@ async function createLocalBlockchain() {
   const Local = Mina.LocalBlockchain();
   Mina.setActiveInstance(Local);
 
-  // console.log("compiling zkapp...");
-  // ({ verificationKey } = await MerkleAirdrop.compile());
-  // console.log("compiled zkapp...");
-  // console.log({ verificationKey })
-
   alice = new Account(Local.testAccounts[1].publicKey);
   charlie = new Account(Local.testAccounts[2].publicKey);
   olivia = new Account(Local.testAccounts[3].publicKey);
@@ -53,7 +44,7 @@ async function createLocalBlockchain() {
 }
 
 async function localDeploy(
-  zkAppInstance: MerkleAirdrop,
+  zkAppInstance: Airdrop,
   zkAppPrivatekey: PrivateKey,
   deployerAccount: PrivateKey
 ) {
@@ -64,7 +55,7 @@ async function localDeploy(
   await txn.send();
 }
 
-describe('MerkleAirdrop', () => {
+describe('Airdrop', () => {
   let deployerAccount: PrivateKey,
     zkAppAddress: PublicKey,
     zkAppPrivateKey: PrivateKey;
@@ -77,22 +68,19 @@ describe('MerkleAirdrop', () => {
   });
 
   afterAll(async () => {
-    // `shutdown()` internally calls `process.exit()` which will exit the running Jest process early.
-    // Specifying a timeout of 0 is a workaround to defer `shutdown()` until Jest is done running all tests.
-    // This should be fixed with https://github.com/MinaProtocol/mina/issues/10943
     setTimeout(shutdown, 0);
   });
 
-  it('deploys the `MerkleAirdrop` smart contract and setsPreImage', async () => {
-    const zkAppInstance = new MerkleAirdrop(zkAppAddress);
+  it('deploys the `Airdrop` smart contract and setsPreImage', async () => {
+    const zkAppInstance = new Airdrop(zkAppAddress);
     await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
     await setCommitment(deployerAccount, zkAppPrivateKey, zkAppInstance);
 
-    expect(zkAppInstance.commitment.get()).toEqual(initialCommitment);
+    expect(zkAppInstance.idsCommitment.get()).toEqual(initialCommitment);
   });
 
   it('check Alice is in the set', async () => {
-    const zkAppInstance = new MerkleAirdrop(zkAppAddress);
+    const zkAppInstance = new Airdrop(zkAppAddress);
     await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
     await setCommitment(deployerAccount, zkAppPrivateKey, zkAppInstance);
 
@@ -106,7 +94,7 @@ describe('MerkleAirdrop', () => {
   });
 
   it('can mint', async () => {
-    const zkAppInstance = new MerkleAirdrop(zkAppAddress);
+    const zkAppInstance = new Airdrop(zkAppAddress);
     await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
     await setCommitment(deployerAccount, zkAppPrivateKey, zkAppInstance);
 
@@ -114,7 +102,7 @@ describe('MerkleAirdrop', () => {
   });
 
   it('check claim status', async () => {
-    const zkAppInstance = new MerkleAirdrop(zkAppAddress);
+    const zkAppInstance = new Airdrop(zkAppAddress);
     await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
     await setCommitment(deployerAccount, zkAppPrivateKey, zkAppInstance);
 
@@ -128,7 +116,7 @@ describe('MerkleAirdrop', () => {
   });
 
   it('can claim', async () => {
-    const zkAppInstance = new MerkleAirdrop(zkAppAddress);
+    const zkAppInstance = new Airdrop(zkAppAddress);
     await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
     await setCommitment(deployerAccount, zkAppPrivateKey, zkAppInstance);
 
@@ -151,7 +139,7 @@ describe('MerkleAirdrop', () => {
   });
 
   it('throws when randomer is not in set', async () => {
-    const zkAppInstance = new MerkleAirdrop(zkAppAddress);
+    const zkAppInstance = new Airdrop(zkAppAddress);
     await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
     await setCommitment(deployerAccount, zkAppPrivateKey, zkAppInstance);
     try {
@@ -173,7 +161,7 @@ describe('MerkleAirdrop', () => {
 async function setCommitment(
   feePayer: any,
   zkappKey: any,
-  merkleZkApp: MerkleAirdrop
+  merkleZkApp: Airdrop
 ) {
   let tx = await Mina.transaction(feePayer, () => {
     merkleZkApp.setCommitment(initialCommitment);
@@ -185,10 +173,10 @@ async function setCommitment(
 
 async function checkSetInclusion(
   name: Names,
-  index: bigint, // do we need index? can we just loop in the tree?
+  index: bigint,
   feePayer: any,
   zkappKey: any,
-  contract: MerkleAirdrop
+  contract: Airdrop
 ) {
   let tx = await Mina.transaction(feePayer, () => {
     let account = Accounts.get(name)!;
@@ -206,7 +194,7 @@ async function claim(
   index: bigint,
   feePayer: any,
   zkappKey: any,
-  contract: MerkleAirdrop
+  contract: Airdrop
 ) {
   let recepient = Accounts.get(name)!.publicKey;
 
@@ -237,7 +225,7 @@ async function checkClaimed(
   name: Names,
   feePayer: any,
   zkappKey: any,
-  contract: MerkleAirdrop
+  contract: Airdrop
 ): Promise<bigint> {
   let result = BigInt(0);
 
@@ -257,13 +245,13 @@ async function checkClaimed(
   return result;
 }
 
-async function mint(feePayer: any, zkappKey: any, contract: MerkleAirdrop) {
+async function mint(feePayer: any, zkappKey: any, contract: Airdrop) {
   const sig = Signature.create(
     zkappKey,
     UInt64.from(initialTokens).toFields().concat(contract.address.toFields())
   );
   // console.log("compiling.")
-  // await MerkleAirdrop.compile()
+  // await Airdrop.compile()
   let tx = await Mina.transaction(feePayer, () => {
     AccountUpdate.fundNewAccount(feePayer);
     contract.mint(contract.address, UInt64.from(initialTokens), sig);
